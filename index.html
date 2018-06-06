@@ -1,0 +1,71 @@
+<html lang="en">
+	<head>
+		<title>Link Epic Games Account</title>
+		<link href="logo.png" rel="icon">
+		<link href="bootstrap.css" rel="stylesheet">
+		<link href="https://fonts.googleapis.com/css?family=Bowlby+One+SC|IBM+Plex+Sans" rel="stylesheet">
+
+		<style>
+			h1 {
+				font-family: 'Bowlby One SC', cursive;
+			}
+			body {
+				font-family: 'IBM Plex Sans', sans-serif;
+				font-size: 17px;
+			}
+			.center {
+				display: block;
+				margin: 0px auto;
+				width: 25%;
+			}
+		</style>
+
+		<script>
+			function submitForm() {
+				var user = document.getElementById("username").value;
+				var platformElement = document.getElementById("platform");
+				var platform = platformElement.options[platformElement.selectedIndex].value;
+				console.log(user);
+				console.log(platform);
+				confirmUser(user, platform);
+			}
+
+			function confirmUser(username, platform)
+			{
+				var xttp = new XMLHttpRequest();
+				var url = "handler.py?platform="+platform+"&username="+username;
+				console.log(url);
+
+				xttp.open("GET", url, true);
+				xttp.send();
+				xttp.onreadystatechange = confirmStatus(xttp);
+			}
+
+			function printStatus(obj) {
+				console.log(obj.status);
+			}
+		</script>
+	</head>
+
+	<body>
+		<h1 class="text-center">Fortnite Stats: Unofficial<h1>
+		<h3 class="text-center">Link your account to get started.</h3>
+
+		<div class="container-fluid">
+			<form action="handler.py?redirect_uri=p1&state=p2" method="GET">
+				<div class="form-group">
+					<label>Epic Games Username</label>
+					<input width="50%" id="username" name="username" class="form-control" placeholder="Epic Games Username">
+					<br>
+					<label>Primary Platform</label>
+					<select width="50%" name="platform" class="form-control">
+						<option value="pc">PC/Mac</option>
+						<option value="xbl">Xbox One</option>
+						<option value="psn">Playstation 4</option>
+					</select>
+				</div>
+				<input name="redirect_uri" value=p1 hidden="true"><input name="state" value=p2 hidden="true">
+				<button type="submit" class="btn btn-primary center" onclick="submitForm()">SUBMIT</button>
+			</form>
+	</body>
+</html>
