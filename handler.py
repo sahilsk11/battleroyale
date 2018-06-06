@@ -35,8 +35,8 @@ elif (platform != "" and username != ""):
             f = open("user.html")
             print f.read()
         else:
-            token = platform+username
-            print "<script>window.location=\""+redirect_uri+"?code="+token+"&state="+state+"\"</script>"
+            token = platform+"#"+username
+            print "<script>window.location=\""+redirect_uri+"?access_token="+token+"&state="+state+"\"</script>"
     else:
         print("Could not access database")
 else:

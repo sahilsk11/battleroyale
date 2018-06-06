@@ -4,26 +4,26 @@ import pprint
 def lambda_handler(event, context):
     headers = {"TRN-Api-Key":"07e80b10-398c-4d66-9078-00fcae0d6b25"}
     #Finds the user in the event
-    url = parse_user(event)
-    if (url == "e0"):
-        #User not found in event
-        return error_message("e0")
+    (url, default) = parse_user(event)
     try:
         #Retrieves the data from the url
         html_response = requests.get(url, headers=headers)
     #If it cannot connect to URL, catch error
     except requests.exceptions.ConnectionError:
-        return error_message("e1")
+        return build_json("There was an error connecting to the tracker.", {"title":"Error", "content":"Could not connect to tracker."})
     try:
         #Convert response object to JSON
         player_data = html_response.json()
     #If it cannot be converted to JSON, there was an error accessing data
     except ValueError:
-        return error_message("e2")
+        return build_json("There was an error retrieving player data.", {"title":"Error", "content":"Could not find player."})
+    #pprint.pprint(player_data)
     
     #Parse response
-    (mode, individual_stat, shouldEndSession) = parse_request(event) #Returns tuple with (game mode, individual stat = None, shouldEndSession)
+    (mode, individual_stat, shouldEndSession) = parse_request(event) #Returns tuple with (game mode, individual stat = None)
     (response_txt, stat_json) = build_text_response(player_data, mode, individual_stat) #Returns tuple with (response txt, stat json)
+    if (default and mode != "start" and mode != "stop" and mode != "help"):
+        response_txt = "I think this is who you are looking for. " + response_txt
     card = build_card(mode, stat_json) #Returns dict of card data
     
     return_obj = build_json(response_txt, card, shouldEndSession) #Returns json response
@@ -33,16 +33,16 @@ def lambda_handler(event, context):
 #Takes in event and finds the user
 #Default to Sahil if no user found
 def parse_user(event):
+    default = False
     try:
-        name = event["session"]["user"]["accessToken"]
+        name = event["request"]["intent"]["slots"]["user"]["resolutions"]["resolutionsPerAuthority"][0]["values"][0]["value"]["name"]
     except KeyError:
-        return "e0"
-    user = decodeToken(name)
-    url = "https://api.fortnitetracker.com/v1/profile/%s/%s" % (name[0], name[1])
-    return url
-
-def decodeToken(access_token):
-    return access_token.split("#")
+        name = "Sahil"
+        default = True
+    users = {"Sahil":["xbl", "sk11hasil"], "Neeraj":["pc", "lifegood141"], "Ninja":["pc", "ninja"], "Neil":["psn","nileriver41"], "Gautham":["pc","GothmCity2"], "Sushant":["pc", "sooshbag69"], "Rajiv":["pc", "happiiface"]}
+    user = users[name]
+    url = "https://api.fortnitetracker.com/v1/profile/%s/%s" % (user[0], user[1])
+    return (url, default)
 
 #Builds the card dict using player stats
 def build_card(mode, player_data):
@@ -79,8 +79,7 @@ def build_text_response(player_data, mode="solo", individual_stat= None):
         mode = ""
     
     if (individual_stat == None):
-        response = overall_str + stat_data["name"] + " has " + stat_data["wins"] + " " + mode + " "\
-         + f_season + "wins, with " + stat_data["kills"] + \
+        response = overall_str + stat_data["name"] + " has " + stat_data["wins"] + " " + mode + " " + f_season + "wins, with " + stat_data["kills"] + \
         " kills in " + stat_data["matches"] + " matches with a KD of " + stat_data["kd"]
     else:
         if (individual_stat == "wins"):
@@ -188,27 +187,19 @@ def build_json(text, card, shouldEndSession=True):
         "sessionAttributes": {}
     }
     
-def error_message(message):
-    if (message == "e0"):
-        return build_json("There was a problem finding the current user. Please check the Alexa app and make sure your Epic Games account is linked.",
-                   {"title":"Error", "content":"Please link account."})
-    elif (message == "e1"):
-        return build_json("There was an error connecting to the tracker.", {"title":"Error", "content":"Could not connect to tracker."})
-    elif (message == "e2"):
-        return build_json("There was an error retrieving player data.", {"title":"Error", "content":"Could not find player."})
+    
     
     
 json = {
     "version": "1.0",
     "session": {
-        "new": True,
-        "sessionId": "amzn1.echo-api.session.68301eed-e484-404e-b37f-451489eac054",
+        "new": False,
+        "sessionId": "amzn1.echo-api.session.bea591f3-15b7-422d-9583-aefb24e71e8a",
         "application": {
             "applicationId": "amzn1.ask.skill.b82a1943-8fce-4eeb-a37e-a46fdcc5d096"
         },
         "user": {
-            "userId": "amzn1.ask.account.AE7BGIK65L2D4YEN4GHWSLVXQ3CPKCMYJYALAN3WNZHEETTTDBGQNIUMKROIVLG43SXUWJJIZQJFOQH3HLT6URCQVYW54PI67BK6K5FFBPMKAVQJFT56GQSLQXAMM32HNTO7W6CQHY6ZIT6HD4NVAODMDVHFLAGQRI2D6WG2RHCXP65LMCCICUAQMNS4HSQIWSE6LPMRANVP4YY",
-            "accessToken": "xblsk11hasil"
+            "userId": "amzn1.ask.account.AHMLSXSQ6I7UNHGIZLPNMOFUXA47NJTZTPX74F4VQYQ3WRCAIGRPTRVHRGKL5GEUUKOOLFR66XUWMLQHOQCI7SNABQP4F622PMLAOHQWIUQKK4H55OQ4SHIWX2OQN3MS36O3W56VPSHRZMV2ORQ2ILHVGEUYV4XJRMDXNASOV4LBKOMUG33POLE46M3R5QUMWIBDKFC5ASL7TBA"
         }
     },
     "context": {
@@ -223,11 +214,10 @@ json = {
                 "applicationId": "amzn1.ask.skill.b82a1943-8fce-4eeb-a37e-a46fdcc5d096"
             },
             "user": {
-                "userId": "amzn1.ask.account.AE7BGIK65L2D4YEN4GHWSLVXQ3CPKCMYJYALAN3WNZHEETTTDBGQNIUMKROIVLG43SXUWJJIZQJFOQH3HLT6URCQVYW54PI67BK6K5FFBPMKAVQJFT56GQSLQXAMM32HNTO7W6CQHY6ZIT6HD4NVAODMDVHFLAGQRI2D6WG2RHCXP65LMCCICUAQMNS4HSQIWSE6LPMRANVP4YY",
-                "accessToken": "xblsk11hasil"
+                "userId": "amzn1.ask.account.AHMLSXSQ6I7UNHGIZLPNMOFUXA47NJTZTPX74F4VQYQ3WRCAIGRPTRVHRGKL5GEUUKOOLFR66XUWMLQHOQCI7SNABQP4F622PMLAOHQWIUQKK4H55OQ4SHIWX2OQN3MS36O3W56VPSHRZMV2ORQ2ILHVGEUYV4XJRMDXNASOV4LBKOMUG33POLE46M3R5QUMWIBDKFC5ASL7TBA"
             },
             "device": {
-                "deviceId": "amzn1.ask.device.AGCT3RPEP5EFTXTD7E37RYZ6VDMQMJFY3LE2XSTF6FIZIEOBNH5EQG2ZCQP6ZCUZDWURVTK5WNXNDG7UD6CHOROVY5D3I5NNFDFRWV2ESAJD2EURGAZC4C5VKZ65GIWV6WIZSGMPAEAHBDQVQMG57RMC7JOQ",
+                "deviceId": "amzn1.ask.device.AHB4ZVSFU7PTORUZXJUXEDHRUMF6XY55ULKYNJ47VKXY67IH7RTXKVHBPRSZ6RE4UE3AZ3SWQQO4RTAXPZGPZHLVS3622E54NCFRPNYV7CH42YOLJIXUMA7KWAHKW4MUC3LUAXAHFRDQ3M5XM7OFMLYPNF6Q",
                 "supportedInterfaces": {
                     "AudioPlayer": {},
                     "Display": {
@@ -237,18 +227,57 @@ json = {
                 }
             },
             "apiEndpoint": "https://api.amazonalexa.com",
-            "apiAccessToken": "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImtpZCI6IjEifQ.eyJhdWQiOiJodHRwczovL2FwaS5hbWF6b25hbGV4YS5jb20iLCJpc3MiOiJBbGV4YVNraWxsS2l0Iiwic3ViIjoiYW16bjEuYXNrLnNraWxsLmI4MmExOTQzLThmY2UtNGVlYi1hMzdlLWE0NmZkY2M1ZDA5NiIsImV4cCI6MTUyODI2NDU2MSwiaWF0IjoxNTI4MjYwOTYxLCJuYmYiOjE1MjgyNjA5NjEsInByaXZhdGVDbGFpbXMiOnsiY29uc2VudFRva2VuIjpudWxsLCJkZXZpY2VJZCI6ImFtem4xLmFzay5kZXZpY2UuQUdDVDNSUEVQNUVGVFhURDdFMzdSWVo2VkRNUU1KRlkzTEUyWFNURjZGSVpJRU9CTkg1RVFHMlpDUVA2WkNVWkRXVVJWVEs1V05YTkRHN1VENkNIT1JPVlk1RDNJNU5ORkRGUldWMkVTQUpEMkVVUkdBWkM0QzVWS1o2NUdJV1Y2V0laU0dNUEFFQUhCRFFWUU1HNTdSTUM3Sk9RIiwidXNlcklkIjoiYW16bjEuYXNrLmFjY291bnQuQUU3QkdJSzY1TDJENFlFTjRHSFdTTFZYUTNDUEtDTVlKWUFMQU4zV05aSEVFVFRUREJHUU5JVU1LUk9JVkxHNDNTWFVXSkpJWlFKRk9RSDNITFQ2VVJDUVZZVzU0UEk2N0JLNks1RkZCUE1LQVZRSkZUNTZHUVNMUVhBTU0zMkhOVE83VzZDUUhZNlpJVDZIRDROVkFPRE1EVkhGTEFHUVJJMkQ2V0cyUkhDWFA2NUxNQ0NJQ1VBUU1OUzRIU1FJV1NFNkxQTVJBTlZQNFlZIn19.Ac9J5Q3C5Do0cEXIyd5kTXsv8jPbN1e8iP3D6D6EVyVd6AhCU99RUSRPScA13G0YAgyqwUui0UD7AgAsWgjTPKgBkmLxC7dCZkCIKZJL9GgA8gj9G4gLtlGOpRbptnfS5Cbq3HeVn_lyj_a7ixj7XVRu1kXPQGSgstiXXVZXgyaZ0no6FynvZ2lyi9BtvjL5ESenFdlrB40FXBKPmcfZul7HpH9iYwFnDXAmtGVIoKtAqFtqPSKfI46i3FR52r_IK_AbATCPSge6CnOyiVbtwPH97KwZmQgSMx_sKJVjg5uNu74IwxY9nUTyMfXJtxT-SjWnL0eobxOGegGgiTudXA"
+            "apiAccessToken": "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImtpZCI6IjEifQ.eyJhdWQiOiJodHRwczovL2FwaS5hbWF6b25hbGV4YS5jb20iLCJpc3MiOiJBbGV4YVNraWxsS2l0Iiwic3ViIjoiYW16bjEuYXNrLnNraWxsLmI4MmExOTQzLThmY2UtNGVlYi1hMzdlLWE0NmZkY2M1ZDA5NiIsImV4cCI6MTUyODE2MjkwMSwiaWF0IjoxNTI4MTU5MzAxLCJuYmYiOjE1MjgxNTkzMDEsInByaXZhdGVDbGFpbXMiOnsiY29uc2VudFRva2VuIjpudWxsLCJkZXZpY2VJZCI6ImFtem4xLmFzay5kZXZpY2UuQUhCNFpWU0ZVN1BUT1JVWlhKVVhFREhSVU1GNlhZNTVVTEtZTko0N1ZLWFk2N0lIN1JUWEtWSEJQUlNaNlJFNFVFM0FaM1NXUVFPNFJUQVhQWkdQWkhMVlMzNjIyRTU0TkNGUlBOWVY3Q0g0MllPTEpJWFVNQTdLV0FIS1c0TVVDM0xVQVhBSEZSRFEzTTVYTTdPRk1MWVBORjZRIiwidXNlcklkIjoiYW16bjEuYXNrLmFjY291bnQuQUhNTFNYU1E2STdVTkhHSVpMUE5NT0ZVWEE0N05KVFpUUFg3NEY0VlFZUTNXUkNBSUdSUFRSVkhSR0tMNUdFVVVLT09MRlI2NlhVV01MUUhPUUNJN1NOQUJRUDRGNjIyUE1MQU9IUVdJVVFLSzRINTVPUTRTSElXWDJPUU4zTVMzNk8zVzU2VlBTSFJaTVYyT1JRMklMSFZHRVVZVjRYSlJNRFhOQVNPVjRMQktPTVVHMzNQT0xFNDZNM1I1UVVNV0lCREtGQzVBU0w3VEJBIn19.E6flGTPB_xDFZq39h76d6KSyv4qxnuwd4qT3MH5odCeJQNFV7BfRimmqtSRyRgWfOwdNjcDw4p7HT6CE8H3Um5fp6XBP3l63fG7F1tF9QQBZAx-fST9g0E8gXyz8ByNeXjfPwd93M8AlLEU9664tlDAOnaXk6p4KkxCzu9DTjtjk9kfZKalDhn_fNdIui80dflrCMNTT5QpWbaU8yelLmOv_tWONn838NIiPtx5pYEv3tnDzzSdpvrHMskCEHIpQGKF7WuPDW6V_WAb_x3HseBygFNaX7aeFWodsDhYyoooj0Kq4JAfkz5BGJqEE4c-t8I8_N3S61LVTG2KccwNFFQ"
         }
     },
     "request": {
         "type": "IntentRequest",
-        "requestId": "amzn1.echo-api.request.3cfbe518-1b3c-4eef-b5b9-bd8d99c68b0e",
-        "timestamp": "2018-06-06T04:56:01Z",
+        "requestId": "amzn1.echo-api.request.1e45afae-0ac6-4b6d-bfcc-deb66c7a7152",
+        "timestamp": "2018-06-05T00:41:41Z",
         "locale": "en-US",
         "intent": {
-            "name": "AMAZON.FallbackIntent",
+            "name": "AMAZON.StopIntent",
             "confirmationStatus": "NONE"
         }
     }
 }
 print(lambda_handler(json, None))
+
+
+def basic_response(title, resp_str):
+    session_attributes = {}
+    reprompt_text = None
+    speech_output = resp_str
+    should_end_session = True
+    return build_response(session_attributes, title, speech_output, reprompt_text, should_end_session)
+'''
+def build_response(session_attributes, title, output, reprompt_text, should_end_session, card_type='Simple', addtl_response={}):
+    return_data = {
+        'version': '1.0',
+        'sessionAttributes': session_attributes,
+        'response': {
+            'outputSpeech': {
+                'type': 'PlainText',
+                'text': output
+            },
+            'card': {
+                'type': card_type,
+                'title':  title,
+                'content': output
+            },
+            'reprompt': {
+                'outputSpeech': {
+                    'type': 'PlainText',
+                    'text': reprompt_text
+                }
+            },
+            'shouldEndSession': should_end_session
+        }
+    }
+    
+    # Typically use by audio item
+    for key, value in addtl_response.items():
+        return_data['response'][key] = value
+        
+    return return_data
+    '''
